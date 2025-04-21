@@ -4,9 +4,13 @@ import java.util.Random;
 import javax.swing.*;
 
 public class Tetris extends JFrame {
-    private static final int GRID_WIDTH = 10;
+    private static final int GRID_WIDTH = 18; // 16:9 ratio with GRID_HEIGHT = 18
     private static final int GRID_HEIGHT = 20;
-    private static final int BLOCK_SIZE = 30;
+    private static final int BLOCK_SIZE = 25;
+    private static final int LEFT_PADDING = 19; // 0.5 cm at 96 DPI
+    private static final int RIGHT_PADDING = 35;
+    private static final int TOP_PADDING = 35;
+    private static final int BOTTOM_PADDING = 45;
     private static final int[][][] SHAPES = {
         {{1, 1, 1, 1}}, // I
         {{1, 1}, {1, 1}}, // O
@@ -36,7 +40,7 @@ public class Tetris extends JFrame {
     
     public Tetris() {
         setTitle("Tetris");
-        setSize(GRID_WIDTH * BLOCK_SIZE + 100, GRID_HEIGHT * BLOCK_SIZE + 50);
+        setSize(GRID_WIDTH * BLOCK_SIZE + LEFT_PADDING + RIGHT_PADDING, GRID_HEIGHT * BLOCK_SIZE + TOP_PADDING + BOTTOM_PADDING); // 504x570 pixels
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         
@@ -47,14 +51,14 @@ public class Tetris extends JFrame {
                 drawBoard(g);
                 drawPiece(g);
                 g.setColor(Color.BLACK);
-                g.drawString("Score: " + score, 10, 20);
+                g.drawString("Score: " + score, 10 + LEFT_PADDING, 20 + TOP_PADDING); // Adjusted for padding
                 if (gameOver) {
                     g.setColor(Color.RED);
-                    g.drawString("Game Over", getWidth() / 2 - 30, getHeight() / 2);
+                    g.drawString("Game Over", (getWidth() / 2) - 30, (getHeight() / 2)); // Centered with padding
                 }
             }
         };
-        gamePanel.setPreferredSize(new Dimension(GRID_WIDTH * BLOCK_SIZE, GRID_HEIGHT * BLOCK_SIZE));
+        gamePanel.setPreferredSize(new Dimension(GRID_WIDTH * BLOCK_SIZE, GRID_HEIGHT * BLOCK_SIZE)); // 450x500 pixels
         add(gamePanel);
         
         addKeyListener(new KeyAdapter() {
@@ -85,15 +89,18 @@ public class Tetris extends JFrame {
     
     private void drawBoard(Graphics g) {
         for (int y = 0; y < GRID_HEIGHT; y++) {
-            for (int x = 0; x < GRID_WIDTH; x++) {
+            for (int x = 0; x < GRID_WIDTH; x++) { // Draw all 18 columns
                 if (board[y][x] == 1) {
                     g.setColor(Color.BLUE);
-                    g.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    g.fillRect(x * BLOCK_SIZE + LEFT_PADDING, y * BLOCK_SIZE + TOP_PADDING, BLOCK_SIZE, BLOCK_SIZE); // Shifted by padding
                     g.setColor(Color.BLACK);
-                    g.drawRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    g.drawRect(x * BLOCK_SIZE + LEFT_PADDING, y * BLOCK_SIZE + TOP_PADDING, BLOCK_SIZE, BLOCK_SIZE);
                 }
             }
         }
+        // Draw bottom border line for clarity
+        g.setColor(Color.BLACK);
+        g.drawLine(LEFT_PADDING, (GRID_HEIGHT * BLOCK_SIZE) + TOP_PADDING, (GRID_WIDTH * BLOCK_SIZE) + LEFT_PADDING, (GRID_HEIGHT * BLOCK_SIZE) + TOP_PADDING);
     }
     
     private void drawPiece(Graphics g) {
@@ -101,9 +108,9 @@ public class Tetris extends JFrame {
         for (int y = 0; y < currentPiece.shape.length; y++) {
             for (int x = 0; x < currentPiece.shape[y].length; x++) {
                 if (currentPiece.shape[y][x] == 1) {
-                    g.fillRect((currentPiece.x + x) * BLOCK_SIZE, (currentPiece.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    g.fillRect((currentPiece.x + x) * BLOCK_SIZE + LEFT_PADDING, (currentPiece.y + y) * BLOCK_SIZE + TOP_PADDING, BLOCK_SIZE, BLOCK_SIZE);
                     g.setColor(Color.BLACK);
-                    g.drawRect((currentPiece.x + x) * BLOCK_SIZE, (currentPiece.y + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    g.drawRect((currentPiece.x + x) * BLOCK_SIZE + LEFT_PADDING, (currentPiece.y + y) * BLOCK_SIZE + TOP_PADDING, BLOCK_SIZE, BLOCK_SIZE);
                     g.setColor(Color.RED);
                 }
             }
@@ -124,7 +131,7 @@ public class Tetris extends JFrame {
                     int boardX = piece.x + x;
                     int boardY = piece.y + y;
                     if (boardX < 0 || boardX >= GRID_WIDTH || boardY >= GRID_HEIGHT || 
-                        (boardY >= 0 && board[boardY][boardX] == 1)) {
+                        (boardY >= 0 && boardY < GRID_HEIGHT && board[boardY][boardX] == 1)) {
                         return true;
                     }
                 }
@@ -136,7 +143,9 @@ public class Tetris extends JFrame {
     private void movePiece(int dx, int dy) {
         currentPiece.x += dx;
         currentPiece.y += dy;
-        if (collides(currentPiece)) {
+        // Calculate the rightmost edge of the piece
+        int maxX = currentPiece.x + currentPiece.shape[0].length - 1;
+        if (collides(currentPiece) || maxX >= GRID_WIDTH) {
             currentPiece.x -= dx;
             currentPiece.y -= dy;
             if (dy > 0) {
@@ -181,18 +190,29 @@ public class Tetris extends JFrame {
     
     private void rotatePiece() {
         int[][] originalShape = currentPiece.shape;
-        int size = originalShape.length;
-        int[][] newShape = new int[size][size];
+        int height = originalShape.length;
+        int width = originalShape[0].length;
+        int[][] newShape = new int[width][height]; // Swap dimensions for rotation
         
-        for (int y = 0; y < size; y++) {
-            for (int x = 0; x < size; x++) {
-                newShape[x][size - 1 - y] = originalShape[y][x];
+        // Perform 90-degree clockwise rotation
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                newShape[x][height - 1 - y] = originalShape[y][x];
             }
         }
         
         currentPiece.shape = newShape;
+        // Adjust position to prevent out-of-bounds after rotation
+        if (currentPiece.x + newShape[0].length > GRID_WIDTH) {
+            currentPiece.x = GRID_WIDTH - newShape[0].length;
+        }
+        if (currentPiece.x < 0) {
+            currentPiece.x = 0;
+        }
+        
         if (collides(currentPiece)) {
             currentPiece.shape = originalShape; // Revert if collision
+            currentPiece.x = Math.min(Math.max(currentPiece.x, 0), GRID_WIDTH - originalShape[0].length);
         }
     }
     
